@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#10151d">
+  <title>Archmage Idle · Editor de save</title>
+  <style>
+    :root { color-scheme: dark; --bg:#10151d; --panel:#181f2a; --line:#2a3544; --text:#edf2f7; --muted:#98a7b8; --accent:#8be0ba; --bad:#ff9c9c; }
+    * { box-sizing:border-box }
+    body { margin:0; background:radial-gradient(ellipse at 75% -10%,#243447 0,transparent 40%),var(--bg); color:var(--text); font:15px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif }
+    main { width:min(1100px,calc(100% - 32px)); margin:54px auto }
+    header { margin-bottom:26px }
+    .eyebrow { color:var(--accent); text-transform:uppercase; letter-spacing:.16em; font-size:12px; font-weight:700 }
+    h1 { margin:7px 0 8px; font-size:clamp(28px,5vw,42px); line-height:1.1; letter-spacing:-.04em }
+    header p,.hint { color:var(--muted) }
+    .panel { background:color-mix(in srgb,var(--panel) 94%,transparent); border:1px solid var(--line); border-radius:16px; padding:20px; box-shadow:0 18px 60px #0003 }
+    .toolbar { display:flex; gap:10px; flex-wrap:wrap; align-items:center }
+    button,.file-button { border:1px solid var(--line); border-radius:9px; padding:10px 14px; color:var(--text); background:#222d3a; font:inherit; font-weight:650; cursor:pointer; transition:.15s }
+    button:hover,.file-button:hover { border-color:#64778c; transform:translateY(-1px) }
+    button.primary { background:var(--accent); border-color:var(--accent); color:#102017 }
+    button:disabled { opacity:.45; cursor:not-allowed; transform:none }
+    input[type=file] { display:none }
+    .status { margin-left:auto; color:var(--muted); font-size:13px }
+    .status.error { color:var(--bad) }
+    .drop { margin-top:14px; padding:16px; text-align:center; border:1px dashed #46566a; border-radius:10px; color:var(--muted); transition:.15s }
+    .drop.over { border-color:var(--accent); background:#8be0ba12 }
+    .editor-head { margin-top:18px; display:flex; justify-content:space-between; gap:12px; align-items:center }
+    .editor-head strong { font-size:14px }
+    .editor-head span { font-size:12px; color:var(--muted) }
+    textarea { margin-top:9px; width:100%; min-height:55vh; resize:vertical; border:1px solid var(--line); border-radius:10px; background:#0c1118; color:#dce9f5; padding:16px; font:13px/1.55 ui-monospace,SFMono-Regular,Consolas,monospace; tab-size:2; outline:none }
+    textarea:focus { border-color:#658a7b }
+    .footer { margin-top:15px; display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; align-items:center }
+    .hint { font-size:12px; max-width:580px }
+    @media(max-width:650px) { main{margin:28px auto}.panel{padding:14px}.status{width:100%;margin:0}textarea{min-height:50vh}.footer button{width:100%} }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <div class="eyebrow">Herramienta local · Archmage Idle</div>
+    <h1>Editor de save</h1>
+    <p>Decodifica tu save, edita cualquier campo del JSON y descarga una copia codificada. El archivo se procesa en tu navegador.</p>
+  </header>
+  <section class="panel">
+    <div class="toolbar">
+      <label class="file-button" for="file">Abrir save</label>
+      <input id="file" type="file" accept=".txt,.json,.save,text/plain,application/json">
+      <span id="status" class="status">Carga un save AT1 o JSON para empezar.</span>
+    </div>
+    <div id="drop" class="drop">También puedes arrastrar aquí el archivo del save</div>
+    <div class="editor-head"><strong>Contenido del save (JSON)</strong><span id="size">Sin datos</span></div>
+    <textarea id="json" spellcheck="false" placeholder="Abre un save para ver y editar sus campos…" aria-label="Contenido JSON del save"></textarea>
+    <div class="footer">
+      <span class="hint">Edita números, textos, valores booleanos, objetos o listas. Se validará el JSON antes de descargar. Guarda el archivo original como respaldo.</span>
+      <button id="download" class="primary" type="button" disabled>Descargar save codificado</button>
+    </div>
+  </section>
+</main>
+<script>
+(() => {
+  'use strict';
+  const PREFIX = 'AT1:';
+  const KEY = new TextEncoder().encode('ArchmageTycoon2026xK9');
+  const fileInput = document.querySelector('#file');
+  const editor = document.querySelector('#json');
+  const status = document.querySelector('#status');
+  const size = document.querySelector('#size');
+  const download = document.querySelector('#download');
+  const drop = document.querySelector('#drop');
+  let fileName = 'archmage-idle-save';
+
+  function message(text, error = false) {
+    status.textContent = text;
+    status.classList.toggle('error', error);
+  }
+  function expandKeys(value, keys) {
+    if (Array.isArray(value)) return value.map(item => expandKeys(item, keys));
+    if (value === null || typeof value !== 'object') return value;
+    const result = {};
+    for (const [rawKey, item] of Object.entries(value)) {
+      let key = rawKey;
+      if (key.startsWith('_')) {
+        const encoded = key.slice(1);
+        if (!/^[0-9a-z]+$/.test(encoded)) throw new Error(`Clave compactada inválida: ${key}`);
+        const index = parseInt(encoded, 36);
+        if (index >= keys.length) throw new Error(`Clave compactada fuera de rango: ${key}`);
+        key = keys[index];
+      }
+      if (Object.hasOwn(result, key)) throw new Error(`Clave duplicada: ${key}`);
+      result[key] = expandKeys(item, keys);
+    }
+    return result;
+  }
+  function decode(text) {
+    text = text.replace(/^\uFEFF/, '').trim();
+    if (text.startsWith(PREFIX)) {
+      const b64 = text.slice(PREFIX.length);
+      let binary;
+      try { binary = atob(b64); } catch { throw new Error('El contenido Base64 del save no es válido.'); }
+      const bytes = Uint8Array.from(binary, (ch, i) => ch.charCodeAt(0) ^ KEY[i % KEY.length]);
+      try { text = new TextDecoder('utf-8', {fatal:true}).decode(bytes); }
+      catch { throw new Error('No se pudo leer el contenido UTF-8 del save.'); }
+    }
+    let data;
+    try { data = JSON.parse(text); }
+    catch { throw new Error('El archivo no contiene un save AT1 ni JSON válido.'); }
+    if (data && !Array.isArray(data) && typeof data === 'object' && Object.hasOwn(data, 'c')) {
+      if (data.c !== 1) throw new Error(`Versión compactada no compatible: ${data.c}`);
+      if (!Array.isArray(data.k) || !data.k.every(k => typeof k === 'string')) throw new Error('El diccionario de claves compactadas no es válido.');
+      if (new Set(data.k).size !== data.k.length || !Object.hasOwn(data, 'd')) throw new Error('El sobre de save compactado está incompleto o tiene claves repetidas.');
+      data = expandKeys(data.d, data.k);
+    }
+    if (!data || Array.isArray(data) || typeof data !== 'object') throw new Error('La raíz del save debe ser un objeto JSON.');
+    return data;
+  }
+  function refresh() {
+    try {
+      const data = JSON.parse(editor.value);
+      if (!data || Array.isArray(data) || typeof data !== 'object') throw new Error('La raíz debe ser un objeto JSON.');
+      download.disabled = false;
+      size.textContent = `${new TextEncoder().encode(editor.value).length.toLocaleString('es-MX')} bytes de JSON`;
+      message('JSON válido. Puedes editarlo y descargarlo.');
+      return data;
+    } catch (err) {
+      download.disabled = true;
+      size.textContent = 'JSON pendiente de corregir';
+      message(err instanceof SyntaxError ? 'JSON inválido: revisa comas, comillas y llaves.' : err.message, true);
+      return null;
+    }
+  }
+  async function loadFile(file) {
+    if (!file) return;
+    try {
+      const data = decode(await file.text());
+      editor.value = JSON.stringify(data, null, 2);
+      fileName = file.name.replace(/\.[^.]+$/, '') || 'archmage-idle-save';
+      refresh();
+    } catch (err) { download.disabled = true; message(err.message, true); }
+  }
+  fileInput.addEventListener('change', () => loadFile(fileInput.files[0]));
+  editor.addEventListener('input', refresh);
+  download.addEventListener('click', () => {
+    const data = refresh();
+    if (!data) return;
+    const bytes = new TextEncoder().encode(JSON.stringify(data));
+    const encrypted = Uint8Array.from(bytes, (byte, i) => byte ^ KEY[i % KEY.length]);
+    let binary = '';
+    for (let i = 0; i < encrypted.length; i += 0x8000) binary += String.fromCharCode(...encrypted.subarray(i, i + 0x8000));
+    const output = PREFIX + btoa(binary);
+    const url = URL.createObjectURL(new Blob([output], {type:'text/plain;charset=utf-8'}));
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${fileName}-modificado.txt`;
+    link.click();
+    URL.revokeObjectURL(url);
+    message('Save codificado descargado.');
+  });
+  for (const event of ['dragenter','dragover']) drop.addEventListener(event, e => { e.preventDefault(); drop.classList.add('over'); });
+  for (const event of ['dragleave','drop']) drop.addEventListener(event, e => { e.preventDefault(); drop.classList.remove('over'); });
+  drop.addEventListener('drop', e => loadFile(e.dataTransfer.files[0]));
+})();
+</script>
+</body>
+</html>
