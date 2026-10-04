@@ -1,10 +1,10 @@
 <!doctype html>
-<html lang="es">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#10151d">
-  <title>Archmage Idle · Editor de save</title>
+  <title>Archmage Idle · Save Editor</title>
   <style>
     :root { color-scheme: dark; --bg:#10151d; --panel:#181f2a; --line:#2a3544; --text:#edf2f7; --muted:#98a7b8; --accent:#8be0ba; --bad:#ff9c9c; }
     * { box-sizing:border-box }
@@ -32,28 +32,56 @@
     textarea:focus { border-color:#658a7b }
     .footer { margin-top:15px; display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; align-items:center }
     .hint { font-size:12px; max-width:580px }
+    .workspace { margin-top:18px }
+    .workspace-tools { display:flex; gap:10px; flex-wrap:wrap; margin:14px 0 }
+    .workspace-tools input { flex:1; min-width:220px; border:1px solid var(--line); border-radius:9px; padding:10px 12px; color:var(--text); background:#0c1118; font:inherit }
+    .summary-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(145px,1fr)); gap:10px; margin:14px 0 }
+    .stat { padding:12px; border:1px solid var(--line); border-radius:10px; background:#111923 }
+    .stat b { display:block; font-size:19px; color:var(--accent) }.stat span { color:var(--muted); font-size:12px }
+    details.group { border:1px solid var(--line); border-radius:11px; margin:9px 0; background:#121923; overflow:hidden }
+    details.group>summary { cursor:pointer; list-style:none; padding:13px 15px; display:flex; justify-content:space-between; gap:12px; font-weight:700 }
+    details.group>summary::-webkit-details-marker { display:none }
+    details.group>summary:after { content:'＋'; color:var(--accent) }
+    details.group[open]>summary:after { content:'−' }
+    .group-content { padding:0 14px 14px; border-top:1px solid var(--line) }
+    .field { display:grid; grid-template-columns:minmax(150px, .8fr) minmax(180px, 1.2fr); gap:10px; align-items:center; padding:9px 0; border-bottom:1px solid #26303d }
+    .field:last-child { border-bottom:0 }
+    .field label,.field-name { overflow-wrap:anywhere; color:#dce5ef; font-size:13px }
+    .field input:not([type=checkbox]),.field select,.field textarea { width:100%; border:1px solid var(--line); border-radius:7px; padding:8px 9px; background:#0b1118; color:var(--text); font:inherit }
+    .field input[type=checkbox] { width:18px; height:18px; accent-color:var(--accent) }
+    .array-head { display:flex; justify-content:space-between; align-items:center; padding:9px 0; color:var(--muted); font-size:12px }
+    .array-row { padding:8px; margin:7px 0; border:1px solid #283443; border-radius:8px; background:#0e151e }
+    .array-row-head { display:flex; justify-content:space-between; align-items:center; gap:8px; color:var(--muted); font-size:12px }
+    button.small { padding:5px 9px; font-size:12px }
+    .danger { color:#ffb4b4 }
+    .empty { color:var(--muted); padding:12px 0; font-size:13px }
+    .advanced { margin-top:15px }
+    .advanced textarea { min-height:45vh }
+    .advanced summary { cursor:pointer; color:var(--accent); padding:8px 0 }
+    .notice { color:var(--muted); font-size:12px; margin:8px 0 }
     @media(max-width:650px) { main{margin:28px auto}.panel{padding:14px}.status{width:100%;margin:0}textarea{min-height:50vh}.footer button{width:100%} }
   </style>
 </head>
 <body>
 <main>
   <header>
-    <div class="eyebrow">Herramienta local · Archmage Idle</div>
-    <h1>Editor de save</h1>
-    <p>Decodifica tu save, edita cualquier campo del JSON y descarga una copia codificada. El archivo se procesa en tu navegador.</p>
+    <div class="eyebrow">Local tool · Archmage Idle</div>
+    <h1>Save Editor</h1>
+    <p>Decode your save, edit any JSON field, and download an encoded copy. Your file is processed in your browser.</p>
   </header>
   <section class="panel">
     <div class="toolbar">
-      <label class="file-button" for="file">Abrir save</label>
+      <label class="file-button" for="file">Open Save</label>
       <input id="file" type="file" accept=".txt,.json,.save,text/plain,application/json">
-      <span id="status" class="status">Carga un save AT1 o JSON para empezar.</span>
+      <span id="status" class="status">Load an AT1 save or JSON file to get started.</span>
     </div>
-    <div id="drop" class="drop">También puedes arrastrar aquí el archivo del save</div>
-    <div class="editor-head"><strong>Contenido del save (JSON)</strong><span id="size">Sin datos</span></div>
-    <textarea id="json" spellcheck="false" placeholder="Abre un save para ver y editar sus campos…" aria-label="Contenido JSON del save"></textarea>
+    <div id="drop" class="drop">You can also drag your save file here</div>
+    <div class="editor-head"><strong>Save Overview</strong><span id="size">No data</span></div>
+    <div id="workspace" class="workspace"><div class="empty">Load a save to explore and edit its contents.</div></div>
+    <details class="advanced"><summary>Advanced: edit raw JSON</summary><textarea id="json" spellcheck="false" placeholder="Raw save JSON" aria-label="Raw save JSON"></textarea><div class="toolbar"><button id="apply-json" type="button">Apply JSON changes</button></div></details>
     <div class="footer">
-      <span class="hint">Edita números, textos, valores booleanos, objetos o listas. Se validará el JSON antes de descargar. Guarda el archivo original como respaldo.</span>
-      <button id="download" class="primary" type="button" disabled>Descargar save codificado</button>
+      <span class="hint">Edit numbers, text, boolean values, objects, or arrays. The JSON will be validated before download. Keep the original file as a backup.</span>
+      <button id="download" class="primary" type="button" disabled>Download Encoded Save</button>
     </div>
   </section>
 </main>
@@ -68,7 +96,45 @@
   const size = document.querySelector('#size');
   const download = document.querySelector('#download');
   const drop = document.querySelector('#drop');
+  const workspace = document.querySelector('#workspace');
+  let saveData = null;
+  let rawDirty = false;
   let fileName = 'archmage-idle-save';
+
+  const sectionNames = {player:'Player & currencies',resources:'Resources',xp:'Skills & experience',skills:'Active actions',inventory:'Inventory & bank',quests:'Quests',map:'World map',wizards:'Wizards',battle:'Combat & loadout',shop:'Shop upgrades',conceptUpgrades:'Concept upgrades',elixirs:'Elixirs',chronomancy:'Chronomancy',sigilry:'Sigilry',scavenging:'Scavenging',diplomacy:'Diplomacy',appraisal:'Appraisal & study',mercantile:'Mercantile',bazaar:'Bazaar',unlock:'Skill unlocks',actionUnlock:'Action unlocks',guildShop:'Guild shop',iap:'Purchases',vip:'VIP',ads:'Ads',mana:'Mana',research:'Research',cauldron:'Cauldron',spirits:'Spirits',academy:'Academy',offlineGains:'Offline gains',tutorial:'Tutorial',navigation:'Navigation & UI',cloudSync:'Cloud sync',autoLoadout:'Automatic loadouts',versionNotes:'Version notes',animus:'Animus'};
+  const pretty = key => String(key).replace(/([a-z])([A-Z])/g,'$1 $2').replace(/[_-]/g,' ').replace(/\b\w/g,c=>c.toUpperCase());
+  const esc = value => String(value).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const pathAttr = path => esc(JSON.stringify(path));
+  function getAt(path) { return path.reduce((v,k)=>v[k],saveData); }
+  function setAt(path,value) { const parent=getAt(path.slice(0,-1)); parent[path[path.length-1]]=value; }
+  function deleteAt(path) { delete getAt(path.slice(0,-1))[path[path.length-1]]; }
+  function renderValue(value,path,label,depth=0) {
+    const p=pathAttr(path), title=esc(pretty(label));
+    if (Array.isArray(value)) {
+      const sample=value.find(x=>x!==null), newValue=sample===undefined?null:(typeof sample==='object'?(Array.isArray(sample)?[]:{}):typeof sample==='number'?0:typeof sample==='boolean'?false:'');
+      return `<div class="array-head"><span>${title} · ${value.length} entries</span><button class="small" data-add="${p}" data-new="${esc(JSON.stringify(newValue))}">Add entry</button></div>${value.length?value.map((item,i)=>`<div class="array-row"><div class="array-row-head"><span>Entry ${i+1}</span><button class="small danger" data-remove="${pathAttr([...path,i])}">Remove</button></div>${renderValue(item,[...path,i],Array.isArray(item)?`Entry ${i+1}`:`Entry ${i+1}`,depth+1)}</div>`).join(''):'<div class="empty">No entries</div>'}`;
+    }
+    if (value && typeof value==='object') {
+      const entries=Object.entries(value);
+      return `<details class="group nested" ${depth<1?'open':''}><summary>${title}<span>${entries.length} fields</span></summary><div class="group-content"><div class="array-head"><span>Object properties</span><button class="small" data-add-property="${p}">Add property</button></div>${entries.length?entries.map(([k,v])=>`<div class="array-row"><div class="array-row-head"><span>${esc(k)}</span><button class="small danger" data-delete-property="${pathAttr([...path,k])}">Remove property</button></div>${renderValue(v,[...path,k],k,depth+1)}</div>`).join(''):'<div class="empty">No fields</div>'}</div></details>`;
+    }
+    if (typeof value==='boolean') return `<div class="field"><label>${title}</label><input type="checkbox" data-edit="${p}" ${value?'checked':''}></div>`;
+    if (typeof value==='number') return `<div class="field"><label>${title}</label><input type="number" step="any" data-edit="${p}" value="${esc(value)}"></div>`;
+    if (value===null) return `<div class="field"><label>${title}</label><input type="text" data-edit="${p}" data-null="true" placeholder="null (enter a value to set)"></div>`;
+    return `<div class="field"><label>${title}</label><input type="text" data-edit="${p}" value="${esc(value)}"></div>`;
+  }
+  function renderWorkspace() {
+    if (!saveData) { workspace.innerHTML='<div class="empty">Load a save to explore and edit its contents.</div>'; return; }
+    const inv=saveData.inventory?.items?.length??0, skillCount=saveData.xp?.progress?.length??0;
+    const groups=Object.entries(saveData).map(([key,value])=>{
+      const name=sectionNames[key]||pretty(key), count=value&&typeof value==='object'?Object.keys(value).length:1;
+      return `<details class="group root-group" data-search="${esc((name+' '+key).toLowerCase())}"><summary>${esc(name)}<span>${count} ${count===1?'field':'fields'}</span></summary><div class="group-content">${renderValue(value,[key],key)}</div></details>`;
+    }).join('');
+    workspace.innerHTML=`<div class="summary-grid"><div class="stat"><b>${esc(saveData.player?.gold??'—')}</b><span>Gold</span></div><div class="stat"><b>${esc(saveData.player?.guildMarks??'—')}</b><span>Guild marks</span></div><div class="stat"><b>${inv}</b><span>Inventory stacks</span></div><div class="stat"><b>${skillCount}</b><span>Skill records</span></div><div class="stat"><b>${esc(saveData.gameVersion||saveData.appVersion||'—')}</b><span>Game version</span></div></div><div class="notice">Item, skill, action, and location references are stored as numeric IDs in this save. The editor preserves those IDs and lets you edit each value; it does not have the game’s name catalog.</div><div class="workspace-tools"><input id="section-search" type="search" placeholder="Filter sections (inventory, skills, combat…)" aria-label="Filter save sections"><button id="expand-all" class="small" type="button">Expand sections</button><button id="collapse-all" class="small" type="button">Collapse sections</button></div>${groups}`;
+    workspace.querySelector('#section-search').addEventListener('input',e=>{const q=e.target.value.toLowerCase();workspace.querySelectorAll('.root-group').forEach(el=>{el.hidden=!el.dataset.search.includes(q);});});
+    workspace.querySelector('#expand-all').onclick=()=>workspace.querySelectorAll('.root-group').forEach(el=>el.open=true);
+    workspace.querySelector('#collapse-all').onclick=()=>workspace.querySelectorAll('.root-group').forEach(el=>el.open=false);
+  }
 
   function message(text, error = false) {
     status.textContent = text;
@@ -82,12 +148,12 @@
       let key = rawKey;
       if (key.startsWith('_')) {
         const encoded = key.slice(1);
-        if (!/^[0-9a-z]+$/.test(encoded)) throw new Error(`Clave compactada inválida: ${key}`);
+        if (!/^[0-9a-z]+$/.test(encoded)) throw new Error(`Invalid compacted key: ${key}`);
         const index = parseInt(encoded, 36);
-        if (index >= keys.length) throw new Error(`Clave compactada fuera de rango: ${key}`);
+        if (index >= keys.length) throw new Error(`Compacted key out of range: ${key}`);
         key = keys[index];
       }
-      if (Object.hasOwn(result, key)) throw new Error(`Clave duplicada: ${key}`);
+      if (Object.hasOwn(result, key)) throw new Error(`Duplicate key: ${key}`);
       result[key] = expandKeys(item, keys);
     }
     return result;
@@ -97,35 +163,36 @@
     if (text.startsWith(PREFIX)) {
       const b64 = text.slice(PREFIX.length);
       let binary;
-      try { binary = atob(b64); } catch { throw new Error('El contenido Base64 del save no es válido.'); }
+      try { binary = atob(b64); } catch { throw new Error('The save contains invalid Base64 data.'); }
       const bytes = Uint8Array.from(binary, (ch, i) => ch.charCodeAt(0) ^ KEY[i % KEY.length]);
       try { text = new TextDecoder('utf-8', {fatal:true}).decode(bytes); }
-      catch { throw new Error('No se pudo leer el contenido UTF-8 del save.'); }
+      catch { throw new Error('Could not read the save as UTF-8.'); }
     }
     let data;
     try { data = JSON.parse(text); }
-    catch { throw new Error('El archivo no contiene un save AT1 ni JSON válido.'); }
+    catch { throw new Error('The file does not contain a valid AT1 save or JSON.'); }
     if (data && !Array.isArray(data) && typeof data === 'object' && Object.hasOwn(data, 'c')) {
-      if (data.c !== 1) throw new Error(`Versión compactada no compatible: ${data.c}`);
-      if (!Array.isArray(data.k) || !data.k.every(k => typeof k === 'string')) throw new Error('El diccionario de claves compactadas no es válido.');
-      if (new Set(data.k).size !== data.k.length || !Object.hasOwn(data, 'd')) throw new Error('El sobre de save compactado está incompleto o tiene claves repetidas.');
+      if (data.c !== 1) throw new Error(`Unsupported compacted version: ${data.c}`);
+      if (!Array.isArray(data.k) || !data.k.every(k => typeof k === 'string')) throw new Error('The compacted key dictionary is invalid.');
+      if (new Set(data.k).size !== data.k.length || !Object.hasOwn(data, 'd')) throw new Error('The compacted save wrapper is incomplete or contains duplicate keys.');
       data = expandKeys(data.d, data.k);
     }
-    if (!data || Array.isArray(data) || typeof data !== 'object') throw new Error('La raíz del save debe ser un objeto JSON.');
+    if (!data || Array.isArray(data) || typeof data !== 'object') throw new Error('The save root must be a JSON object.');
     return data;
   }
   function refresh() {
     try {
-      const data = JSON.parse(editor.value);
-      if (!data || Array.isArray(data) || typeof data !== 'object') throw new Error('La raíz debe ser un objeto JSON.');
-      download.disabled = false;
-      size.textContent = `${new TextEncoder().encode(editor.value).length.toLocaleString('es-MX')} bytes de JSON`;
-      message('JSON válido. Puedes editarlo y descargarlo.');
+      const data = saveData || JSON.parse(editor.value);
+      if (!data || Array.isArray(data) || typeof data !== 'object') throw new Error('The root must be a JSON object.');
+      download.disabled = rawDirty;
+      if (!rawDirty) editor.value = JSON.stringify(data,null,2);
+      size.textContent = `${new TextEncoder().encode(editor.value).length.toLocaleString('en-US')} JSON bytes`;
+      message(rawDirty?'Apply your raw JSON changes before downloading.':'Save loaded. Changes are ready to download.');
       return data;
     } catch (err) {
       download.disabled = true;
-      size.textContent = 'JSON pendiente de corregir';
-      message(err instanceof SyntaxError ? 'JSON inválido: revisa comas, comillas y llaves.' : err.message, true);
+      size.textContent = 'JSON needs fixing';
+      message(err instanceof SyntaxError ? 'Invalid JSON: check commas, quotes, and braces.' : err.message, true);
       return null;
     }
   }
@@ -133,16 +200,29 @@
     if (!file) return;
     try {
       const data = decode(await file.text());
+      saveData = data;
       editor.value = JSON.stringify(data, null, 2);
       fileName = file.name.replace(/\.[^.]+$/, '') || 'archmage-idle-save';
+      renderWorkspace();
       refresh();
-    } catch (err) { download.disabled = true; message(err.message, true); }
+    } catch (err) { saveData=null; workspace.innerHTML='<div class="empty">Could not load this file.</div>'; download.disabled = true; message(err.message, true); }
   }
   fileInput.addEventListener('change', () => loadFile(fileInput.files[0]));
-  editor.addEventListener('input', refresh);
+  workspace.addEventListener('click',e=>{
+    const add=e.target.closest('[data-add]');if(add){getAt(JSON.parse(add.dataset.add)).push(JSON.parse(add.dataset.new));renderWorkspace();refresh();return;}
+    const remove=e.target.closest('[data-remove]');if(remove){const p=JSON.parse(remove.dataset.remove),arr=getAt(p.slice(0,-1));arr.splice(p[p.length-1],1);renderWorkspace();refresh();}
+    const addProp=e.target.closest('[data-add-property]');if(addProp){const obj=getAt(JSON.parse(addProp.dataset.addProperty));const key=prompt('New property name');if(key&&!(key in obj)){obj[key]=null;renderWorkspace();refresh();}else if(key)message('That property already exists.',true);return;}
+    const deleteProp=e.target.closest('[data-delete-property]');if(deleteProp){const path=JSON.parse(deleteProp.dataset.deleteProperty);if(confirm(`Remove property “${path[path.length-1]}”?`)){deleteAt(path);renderWorkspace();refresh();}}
+  });
+  workspace.addEventListener('change',e=>{
+    const edit=e.target.closest('[data-edit]');
+    if(edit){const path=JSON.parse(edit.dataset.edit);let value;if(edit.type==='checkbox')value=edit.checked;else if(edit.type==='number')value=Number(edit.value);else if(edit.dataset.null){const raw=edit.value.trim();if(!raw)value=null;else {try{value=JSON.parse(raw);}catch{value=raw;}}}else value=edit.value;setAt(path,value);refresh();return;}
+  });
+  editor.addEventListener('input',()=>{rawDirty=true;download.disabled=true;message('Apply your raw JSON changes before downloading.');});
+  document.querySelector('#apply-json').addEventListener('click',()=>{try{const data=JSON.parse(editor.value);if(!data||Array.isArray(data)||typeof data!=='object')throw new Error('The root must be a JSON object.');saveData=data;rawDirty=false;renderWorkspace();refresh();message('JSON changes applied.');}catch(err){download.disabled=true;message(err.message,true);}});
   download.addEventListener('click', () => {
     const data = refresh();
-    if (!data) return;
+    if (!data || rawDirty) return;
     const bytes = new TextEncoder().encode(JSON.stringify(data));
     const encrypted = Uint8Array.from(bytes, (byte, i) => byte ^ KEY[i % KEY.length]);
     let binary = '';
@@ -151,10 +231,10 @@
     const url = URL.createObjectURL(new Blob([output], {type:'text/plain;charset=utf-8'}));
     const link = document.createElement('a');
     link.href = url;
-    link.download = `${fileName}-modificado.txt`;
+    link.download = `${fileName}-edited.txt`;
     link.click();
     URL.revokeObjectURL(url);
-    message('Save codificado descargado.');
+    message('Encoded save downloaded.');
   });
   for (const event of ['dragenter','dragover']) drop.addEventListener(event, e => { e.preventDefault(); drop.classList.add('over'); });
   for (const event of ['dragleave','drop']) drop.addEventListener(event, e => { e.preventDefault(); drop.classList.remove('over'); });
