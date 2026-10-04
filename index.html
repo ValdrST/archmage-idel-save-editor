@@ -59,6 +59,7 @@
     .advanced textarea { min-height:45vh }
     .advanced summary { cursor:pointer; color:var(--accent); padding:8px 0 }
     .notice { color:var(--muted); font-size:12px; margin:8px 0 }
+    .id-name { display:block; color:var(--accent); font-size:12px; padding:3px 1px 0; overflow-wrap:anywhere }
     @media(max-width:650px) { main{margin:28px auto}.panel{padding:14px}.status{width:100%;margin:0}textarea{min-height:50vh}.footer button{width:100%} }
   </style>
 </head>
@@ -85,6 +86,7 @@
     </div>
   </section>
 </main>
+<script src="game-catalog.js"></script>
 <script>
 (() => {
   'use strict';
@@ -108,6 +110,30 @@
   function getAt(path) { return path.reduce((v,k)=>v[k],saveData); }
   function setAt(path,value) { const parent=getAt(path.slice(0,-1)); parent[path[path.length-1]]=value; }
   function deleteAt(path) { delete getAt(path.slice(0,-1))[path[path.length-1]]; }
+  function idType(path) {
+    const key=String(path[path.length-1]??'');
+    const parent=String(path[path.length-2]??'');
+    const pathText=path.join('.').toLowerCase();
+    if (/skillid|selectedskills|unlockedskills|currentskill/i.test(key)||/xp\.progress\.\d+\.skillId/i.test(pathText)) return 'skills';
+    if (/actionid|selectedactions|unlockedactions/i.test(key)||/actionexperience\.\d+\.actionId/i.test(pathText)) return 'actions';
+    if (/locationid|currentlocation|selectedlocation|activelocation/i.test(key)) return 'locations';
+    if (/wizardid|commanderid|apprenticeid|classwizardids/i.test(key)) return 'wizards';
+    if (/itemid|studyitemid|potionid|tonicid|artifactid|tomeid|aspectid|selectedreagents/i.test(key)) return 'items';
+    if (path[0]==='inventory'&&(['grid','items','totalFound','examined'].includes(path[1]))) return 'items';
+    if (path[0]==='resources'&&path[1]==='amounts') return 'items';
+    if (/potion|tonic|elixir|reagent|allowlist/i.test(parent)&&typeof path[path.length-1]==='number') return 'items';
+    if (['unlockedSkills','unlockedActions','unlockedSlotIds','teachersPetFavoriteWizardIds','currentClassWizardIds','potionAutoUsePriority','potionAutoUseEnabledIds','tonicAutoUsePriority','tonicAutoUseEnabledIds'].includes(parent)) {
+      if (/wizard|class/i.test(parent)) return 'wizards';
+      if (/skill/i.test(parent)) return 'skills';
+      if (/action/i.test(parent)) return 'actions';
+      return 'items';
+    }
+    return null;
+  }
+  function idName(path,value) {
+    const type=idType(path), entry=type&&GAME_CATALOG?.[type]?.[String(value)];
+    return entry?`${entry.name} · ${type.slice(0,-1)} ID ${value}`:null;
+  }
   function renderValue(value,path,label,depth=0) {
     const p=pathAttr(path), title=esc(pretty(label));
     if (Array.isArray(value)) {
@@ -119,7 +145,7 @@
       return `<details class="group nested" ${depth<1?'open':''}><summary>${title}<span>${entries.length} fields</span></summary><div class="group-content"><div class="array-head"><span>Object properties</span><button class="small" data-add-property="${p}">Add property</button></div>${entries.length?entries.map(([k,v])=>`<div class="array-row"><div class="array-row-head"><span>${esc(k)}</span><button class="small danger" data-delete-property="${pathAttr([...path,k])}">Remove property</button></div>${renderValue(v,[...path,k],k,depth+1)}</div>`).join(''):'<div class="empty">No fields</div>'}</div></details>`;
     }
     if (typeof value==='boolean') return `<div class="field"><label>${title}</label><input type="checkbox" data-edit="${p}" ${value?'checked':''}></div>`;
-    if (typeof value==='number') return `<div class="field"><label>${title}</label><input type="number" step="any" data-edit="${p}" value="${esc(value)}"></div>`;
+    if (typeof value==='number') { const ref=idName(path,value);return `<div class="field"><label>${title}</label><div><input type="number" step="any" data-edit="${p}" value="${esc(value)}">${ref?`<small class="id-name">${esc(ref)}</small>`:''}</div></div>`; }
     if (value===null) return `<div class="field"><label>${title}</label><input type="text" data-edit="${p}" data-null="true" placeholder="null (enter a value to set)"></div>`;
     return `<div class="field"><label>${title}</label><input type="text" data-edit="${p}" value="${esc(value)}"></div>`;
   }
@@ -130,7 +156,7 @@
       const name=sectionNames[key]||pretty(key), count=value&&typeof value==='object'?Object.keys(value).length:1;
       return `<details class="group root-group" data-search="${esc((name+' '+key).toLowerCase())}"><summary>${esc(name)}<span>${count} ${count===1?'field':'fields'}</span></summary><div class="group-content">${renderValue(value,[key],key)}</div></details>`;
     }).join('');
-    workspace.innerHTML=`<div class="summary-grid"><div class="stat"><b>${esc(saveData.player?.gold??'—')}</b><span>Gold</span></div><div class="stat"><b>${esc(saveData.player?.guildMarks??'—')}</b><span>Guild marks</span></div><div class="stat"><b>${inv}</b><span>Inventory stacks</span></div><div class="stat"><b>${skillCount}</b><span>Skill records</span></div><div class="stat"><b>${esc(saveData.gameVersion||saveData.appVersion||'—')}</b><span>Game version</span></div></div><div class="notice">Item, skill, action, and location references are stored as numeric IDs in this save. The editor preserves those IDs and lets you edit each value; it does not have the game’s name catalog.</div><div class="workspace-tools"><input id="section-search" type="search" placeholder="Filter sections (inventory, skills, combat…)" aria-label="Filter save sections"><button id="expand-all" class="small" type="button">Expand sections</button><button id="collapse-all" class="small" type="button">Collapse sections</button></div>${groups}`;
+    workspace.innerHTML=`<div class="summary-grid"><div class="stat"><b>${esc(saveData.player?.gold??'—')}</b><span>Gold</span></div><div class="stat"><b>${esc(saveData.player?.guildMarks??'—')}</b><span>Guild marks</span></div><div class="stat"><b>${inv}</b><span>Inventory stacks</span></div><div class="stat"><b>${skillCount}</b><span>Skill records</span></div><div class="stat"><b>${esc(saveData.gameVersion||saveData.appVersion||'—')}</b><span>Game version</span></div></div><div class="notice">Game ID names are loaded from the bundled game catalog for items, skills, actions, locations, and wizards. Unknown IDs remain editable and keep their original numeric value.</div><div class="workspace-tools"><input id="section-search" type="search" placeholder="Filter sections (inventory, skills, combat…)" aria-label="Filter save sections"><button id="expand-all" class="small" type="button">Expand sections</button><button id="collapse-all" class="small" type="button">Collapse sections</button></div>${groups}`;
     workspace.querySelector('#section-search').addEventListener('input',e=>{const q=e.target.value.toLowerCase();workspace.querySelectorAll('.root-group').forEach(el=>{el.hidden=!el.dataset.search.includes(q);});});
     workspace.querySelector('#expand-all').onclick=()=>workspace.querySelectorAll('.root-group').forEach(el=>el.open=true);
     workspace.querySelector('#collapse-all').onclick=()=>workspace.querySelectorAll('.root-group').forEach(el=>el.open=false);
@@ -216,7 +242,7 @@
   });
   workspace.addEventListener('change',e=>{
     const edit=e.target.closest('[data-edit]');
-    if(edit){const path=JSON.parse(edit.dataset.edit);let value;if(edit.type==='checkbox')value=edit.checked;else if(edit.type==='number')value=Number(edit.value);else if(edit.dataset.null){const raw=edit.value.trim();if(!raw)value=null;else {try{value=JSON.parse(raw);}catch{value=raw;}}}else value=edit.value;setAt(path,value);refresh();return;}
+    if(edit){const path=JSON.parse(edit.dataset.edit);let value;if(edit.type==='checkbox')value=edit.checked;else if(edit.type==='number')value=Number(edit.value);else if(edit.dataset.null){const raw=edit.value.trim();if(!raw)value=null;else {try{value=JSON.parse(raw);}catch{value=raw;}}}else value=edit.value;setAt(path,value);renderWorkspace();refresh();return;}
   });
   editor.addEventListener('input',()=>{rawDirty=true;download.disabled=true;message('Apply your raw JSON changes before downloading.');});
   document.querySelector('#apply-json').addEventListener('click',()=>{try{const data=JSON.parse(editor.value);if(!data||Array.isArray(data)||typeof data!=='object')throw new Error('The root must be a JSON object.');saveData=data;rawDirty=false;renderWorkspace();refresh();message('JSON changes applied.');}catch(err){download.disabled=true;message(err.message,true);}});
